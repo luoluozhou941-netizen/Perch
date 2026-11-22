@@ -15,7 +15,7 @@ Actions 页面最新一次运行 → 拉到底部 Artifacts → 下载 `Perch-de
 
 界面图标全部是 24×24 的 SVG 线条图标，定义在 `app/src/main/java/com/example/ap/ui/AppIcons.kt`，共 20 个。
 
-其中 `UP`、`PLUS`、`CHEVRON_DOWN` 三个（向上箭头、加号、向下折角）与 Lucide 图标库的对应图标几何一致，来自 Lucide；其余 17 个为自绘。
+其中 `UP`、`PLUS`、`CHEVRON_DOWN` 三个（向上箭头、加号、向下折角）与 Lucide 图标库的对应图标几何一致，来自 Lucide，按 ISC 与 MIT 双许可使用（详见下文）；其余 17 个为自绘。
 
 启动图标（`res/mipmap-*` 下的 `ic_launcher*`）为自制，未使用第三方素材。
 
