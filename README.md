@@ -73,6 +73,28 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
+## 第三方组件
+
+本项目使用以下第三方组件，均为 Apache-2.0 许可，随本项目一并分发：
+
+### sherpa-onnx
+
+离线语音识别引擎（`app/libs/sherpa-onnx-2.0.3.aar`）。
+- 项目：[k2-fsa/sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx)
+- 作者：k2-fsa（Next-gen Kaldi）
+- 许可证：Apache License 2.0
+
+### 语音识别模型 sherpa-onnx-streaming-zipformer-zh-14M-2023-02-23
+
+打包在 `app/src/main/assets/asr-model/` 下的中文流式语音识别模型
+（`encoder-epoch-99-avg-1.int8.onnx`、`decoder-epoch-99-avg-1.int8.onnx`、
+`joiner-epoch-99-avg-1.int8.onnx`、`tokens.txt`）。
+- 来源：[HuggingFace csukuangfj/sherpa-onnx-streaming-zipformer-zh-14M-2023-02-23](https://huggingface.co/csukuangfj/sherpa-onnx-streaming-zipformer-zh-14M-2023-02-23)
+- 训练数据：WenetSpeech（中文）
+- 许可证：Apache License 2.0
+
+以上两项的 Apache-2.0 许可证全文见仓库根目录 `LICENSES/Apache-2.0.txt`。
+
 ## 许可证
 
 本项目以 GNU Affero General Public License v3.0（AGPL-3.0）发布，完整条款见 `LICENSE` 文件。

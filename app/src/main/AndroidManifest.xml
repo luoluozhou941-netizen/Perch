@@ -1,6 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- 语音转文字要用麦克风 -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+    <!-- 安卓 11 以后，App 要先声明才查得到系统里的语音识别服务，不然会误判成"不支持" -->
+    <queries>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+    </queries>
+
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"

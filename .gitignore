@@ -20,3 +20,7 @@ keystore.properties
 captures/
 .externalNativeBuild/
 .cxx/
+.kotlin/
+build-done
+build.log
+*.log

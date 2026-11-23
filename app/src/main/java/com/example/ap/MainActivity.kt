@@ -1,8 +1,10 @@
 package com.example.ap
 
+import android.Manifest
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
 import android.provider.OpenableColumns
@@ -15,15 +17,21 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 import com.example.ap.chat.Attachment
 import com.example.ap.chat.ChatScreen
+import com.example.ap.chat.FilePreview
 import com.example.ap.chat.ImageViewer
 import com.example.ap.chat.InputBar
 import com.example.ap.chat.MAX_FILES
 import com.example.ap.chat.MAX_IMAGES
 import com.example.ap.chat.rememberChatDemoState
+import com.example.ap.chat.rememberVoiceInput
 import com.example.ap.theme.ChatTheme
 import com.example.ap.theme.LocalChatTheme
 
@@ -38,6 +46,22 @@ class MainActivity : ComponentActivity() {
 
             CompositionLocalProvider(LocalChatTheme provides theme) {
                 val demo = rememberChatDemoState()
+                // 正在预览的文件（点聊天里的文件标签打开）
+                var previewFile by remember { mutableStateOf<Attachment?>(null) }
+                // 语音转文字：识别出来的字实时写进输入框
+                val voice = rememberVoiceInput(
+                    onText = { t -> runOnUiThread { demo.input = t } },
+                    onMessage = { m -> runOnUiThread { Toast.makeText(context, m, Toast.LENGTH_SHORT).show() } },
+                )
+                val askMic = rememberLauncherForActivityResult(
+                    ActivityResultContracts.RequestPermission(),
+                ) { granted ->
+                    if (granted) {
+                        voice.start()
+                    } else {
+                        Toast.makeText(context, "需要允许麦克风才能语音输入，可以在系统设置里打开", Toast.LENGTH_LONG).show()
+                    }
+                }
                 // 系统相册：剩 1 个名额时用单选（多选至少要 2），否则多选；选多了只取名额内的
                 val pickOne = rememberLauncherForActivityResult(
                     ActivityResultContracts.PickVisualMedia(),
@@ -54,11 +78,23 @@ class MainActivity : ComponentActivity() {
                     ActivityResultContracts.OpenMultipleDocuments(),
                 ) { uris ->
                     if (uris.isNotEmpty()) {
-                        val left = demo.remainingFileSlots
-                        if (uris.size > left) {
-                            Toast.makeText(context, "最多选 $MAX_FILES 个文件，已选前 $left 个", Toast.LENGTH_SHORT).show()
+                        // 按文件类型分：图片进图片预览区，其余进文件区（不看是从哪个入口选的）
+                        val (imgs, others) = uris
+                            .map { it to readAttachment(context, it) }
+                            .partition { isImageAttachment(it.second) }
+                        if (imgs.isNotEmpty()) {
+                            if (imgs.size > demo.remainingImageSlots) {
+                                Toast.makeText(context, "最多选 $MAX_IMAGES 张图片", Toast.LENGTH_SHORT).show()
+                            }
+                            demo.attachImages(imgs.map { it.first.toString() })
                         }
-                        demo.attachFiles(uris.map { readAttachment(context, it) })
+                        if (others.isNotEmpty()) {
+                            val left = demo.remainingFileSlots
+                            if (others.size > left) {
+                                Toast.makeText(context, "最多选 $MAX_FILES 个文件，已选前 $left 个", Toast.LENGTH_SHORT).show()
+                            }
+                            demo.attachFiles(others.map { it.second })
+                        }
                     }
                 }
                 ChatScreen(
@@ -68,7 +104,7 @@ class MainActivity : ComponentActivity() {
                     messages = demo.messages,
                     showTyping = demo.showTyping,
                     onImageClick = demo::openImages,
-                    onFileClick = { file -> openFile(context, file) },
+                    onFileClick = { file -> previewFile = file },
                     inputBar = {
                         InputBar(
                             text = demo.input,
@@ -83,7 +119,15 @@ class MainActivity : ComponentActivity() {
                             pendingFiles = demo.pendingFiles,
                             onRemovePendingFile = demo::removePendingFile,
                             onSubmit = demo::submit,
-                            onMicClick = { },    // 还没接语音
+                            onMicClick = {
+                                when {
+                                    voice.listening -> voice.stop()
+                                    ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
+                                        PackageManager.PERMISSION_GRANTED -> voice.start()
+                                    else -> askMic.launch(Manifest.permission.RECORD_AUDIO)
+                                }
+                            },
+                            listening = voice.listening,
                             onImageClick = {
                                 val request = PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
                                 when {
@@ -116,6 +160,13 @@ class MainActivity : ComponentActivity() {
                         onDelete = if (demo.viewingPending) demo::removePendingImage else null,
                     )
                 }
+                previewFile?.let { file ->
+                    FilePreview(
+                        file = file,
+                        onDismiss = { previewFile = null },
+                        onOpenExternal = { openFile(context, file) },
+                    )
+                }
             }
         }
     }
@@ -142,6 +193,14 @@ private fun readAttachment(context: Context, uri: Uri): Attachment {
         // 读不到就保持默认
     }
     return Attachment(uri.toString(), name, size, context.contentResolver.getType(uri))
+}
+
+/** 是不是图片：看 mime 或扩展名。svg 暂不算（Coil 还没装 SVG 解码），仍按文件显示。 */
+private fun isImageAttachment(att: Attachment): Boolean {
+    val ext = att.name.substringAfterLast('.', "").lowercase()
+    if (ext == "svg" || att.mime == "image/svg+xml") return false
+    if (att.mime?.startsWith("image/") == true) return true
+    return ext in setOf("png", "jpg", "jpeg", "gif", "webp", "bmp", "heic", "heif")
 }
 
 /** 点聊天里的文件：调系统"用其他应用打开"；没有能打开的应用就提示一句。 */

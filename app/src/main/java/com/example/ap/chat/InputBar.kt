@@ -1,5 +1,11 @@
 package com.example.ap.chat
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -31,6 +37,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -61,6 +68,7 @@ fun InputBar(
     onRemovePendingFile: (Int) -> Unit,
     onSubmit: () -> Unit,
     onMicClick: () -> Unit,
+    listening: Boolean = false,
     onImageClick: () -> Unit,
     onAttachClick: () -> Unit,
     onModeClick: () -> Unit,
@@ -71,10 +79,14 @@ fun InputBar(
 ) {
     val t = LocalChatTheme.current
     val c = t.colors
-    val mode = sendButtonMode(
-        assistantBusy,
-        text.isNotBlank() || pendingImageUris.isNotEmpty() || pendingFiles.isNotEmpty(),
-    )
+    val mode = if (listening) {
+        SendButtonMode.Listening
+    } else {
+        sendButtonMode(
+            assistantBusy,
+            text.isNotBlank() || pendingImageUris.isNotEmpty() || pendingFiles.isNotEmpty(),
+        )
+    }
     // 输入框是否拉高成"大输入框"。只属于界面，不放进业务状态；发送后自动恢复。
     var fullInput by rememberSaveable { mutableStateOf(false) }
     val dockShape = RoundedCornerShape(t.dp("dockRadius"))
@@ -134,9 +146,9 @@ fun InputBar(
                 horizontalArrangement = Arrangement.spacedBy(t.dp("inputRowGap")),
             ) {
                 ExpandButton(expanded, onToggleExpand)
-                InputField(text, onTextChange, fullInput, Modifier.weight(1f))
+                InputField(text, onTextChange, fullInput, listening, Modifier.weight(1f))
                 SendButton(mode) {
-                    if (mode == SendButtonMode.Mic) onMicClick() else submit()
+                    if (mode == SendButtonMode.Mic || mode == SendButtonMode.Listening) onMicClick() else submit()
                 }
             }
         }
@@ -192,6 +204,7 @@ private fun InputField(
     text: String,
     onTextChange: (String) -> Unit,
     fullInput: Boolean,
+    listening: Boolean,
     modifier: Modifier,
 ) {
     val t = LocalChatTheme.current
@@ -202,6 +215,7 @@ private fun InputField(
     BasicTextField(
         value = text,
         onValueChange = onTextChange,
+        readOnly = listening,   // 正在听的时候文字由语音识别写入，不让手动改
         modifier = modifier,
         textStyle = TextStyle(color = c.text, fontSize = t.sp("fieldFont")),
         cursorBrush = SolidColor(c.accent),
@@ -217,7 +231,7 @@ private fun InputField(
                 contentAlignment = if (fullInput) Alignment.TopStart else Alignment.CenterStart,
             ) {
                 if (text.isEmpty()) {
-                    Text("说点什么吧", color = c.sub, fontSize = t.sp("fieldFont"))
+                    Text(if (listening) "正在听…" else "说点什么吧", color = c.sub, fontSize = t.sp("fieldFont"))
                 }
                 inner()
             }
@@ -257,6 +271,30 @@ private fun SendButton(mode: SendButtonMode, onClick: () -> Unit) {
         SendButtonMode.Send -> "发送"
         SendButtonMode.QueueClock -> "排队发送"
         SendButtonMode.Waiting -> "对方回复中"
+        SendButtonMode.Listening -> "停止语音输入"
+    }
+    Box(Modifier.size(t.dp("controlSize")), contentAlignment = Alignment.Center) {
+    if (mode == SendButtonMode.Listening) {
+        val transition = rememberInfiniteTransition(label = "listening")
+        val p by transition.animateFloat(
+            initialValue = 0f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(tween(t.f("listenRingMs").toInt(), easing = LinearEasing), RepeatMode.Restart),
+            label = "ring",
+        )
+        val grow = t.f("listenRingScale")
+        val peak = t.f("listenRingAlpha")
+        Box(
+            Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    val sc = 1f + grow * p
+                    scaleX = sc
+                    scaleY = sc
+                    alpha = peak * (1f - p)
+                }
+                .background(c.accent, CircleShape),
+        )
     }
     Box(
         Modifier
@@ -276,8 +314,14 @@ private fun SendButton(mode: SendButtonMode, onClick: () -> Unit) {
             SendButtonMode.Mic -> AppIcon(AppIcons.MIC, c.onAccent, icon, strokeWidth = stroke)
             SendButtonMode.Send -> AppIcon(AppIcons.UP, c.onAccent, icon, strokeWidth = stroke)
             SendButtonMode.QueueClock -> AppIcon(AppIcons.CLOCK, c.onSoft, icon, strokeWidth = stroke)
+            SendButtonMode.Listening -> Box(
+                Modifier
+                    .size(t.dp("listenStopSize"))
+                    .background(c.onAccent, RoundedCornerShape(t.dp("listenStopRadius"))),
+            )
             SendButtonMode.Waiting -> Unit
         }
+    }
     }
 }
 

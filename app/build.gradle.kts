@@ -14,8 +14,13 @@ android {
         applicationId = "com.example.ap"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.1"
+
+        // 只保留常见手机 CPU 架构，控制 APK 体积
+        ndk {
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+        }
     }
 
     // 签名密码从本地 keystore.properties 读，这个文件不进仓库（.gitignore 已排除）
@@ -70,4 +75,7 @@ dependencies {
     implementation("androidx.compose.material3:material3")
 
     implementation("io.coil-kt:coil-compose:2.7.0")
+
+    // 离线语音识别引擎（AAR 带全部 CPU 架构的原生库）
+    implementation(files("libs/sherpa-onnx-2.0.3.aar"))
 }

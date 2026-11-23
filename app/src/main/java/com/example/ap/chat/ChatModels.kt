@@ -54,12 +54,13 @@ data class QueuedMessage(
     val attachments: List<Attachment> = emptyList(),
 )
 
-/** 输入栏右侧按钮的四种状态。 */
+/** 输入栏右侧按钮的状态：四种常规状态，加上语音输入时的"正在听"。 */
 enum class SendButtonMode {
     Mic,        // 空着，对方空闲：麦克风
     Send,       // 有内容，对方空闲：向上箭头
     QueueClock, // 有内容，对方回复中：小时钟（排队发送）
     Waiting,    // 空着，对方回复中：浅色空圆，点不了
+    Listening,  // 正在语音输入：赤陶圆 + 停止方块 + 呼吸圈，点一下结束
 }
 
 /** hasContent：输入框里有字，或者已经选了图片、文件。 */
